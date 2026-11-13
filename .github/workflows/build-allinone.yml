@@ -27,11 +27,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare multi-stage Dockerfile
+      - name: Prepare multi-stage Dockerfile and build context
         run: |
           cp Dockerfile Dockerfile.merged
           printf "\n\n" >> Dockerfile.merged
           cat Dockerfile.allinone >> Dockerfile.merged
+          if [ -f .dockerignore ]; then
+            printf "\n!apps/web\n!apps/web/**\n" >> .dockerignore
+          fi
 
       - name: Build and push All-in-One image
         uses: docker/build-push-action@v6
