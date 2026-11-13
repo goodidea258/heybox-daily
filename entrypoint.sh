@@ -29,8 +29,8 @@ export RUNNER_URL="http://127.0.0.1:8788"
 export EXECUTOR_ENABLED="false"
 export DAILY_EXECUTOR="legacy"
 
-# 2. 写入本地 .dev.vars 并自动执行本地 SQLite (模拟 D1) 数据库迁移
-cat << EOT > /web/apps/web/.dev.vars
+# 2. 写入本地 .dev.vars（同时写入 dist/server/.dev.vars 确保 wrangler --config 能加载到密钥）
+DEV_VARS_CONTENT=$(cat << EOT
 BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
 RUNNER_SERVICE_TOKEN=${RUNNER_SERVICE_TOKEN}
 SITE_URL=${SITE_URL}
@@ -38,6 +38,12 @@ RUNNER_URL=http://127.0.0.1:8788
 EXECUTOR_ENABLED=false
 DAILY_EXECUTOR=legacy
 EOT
+)
+
+printf "%s\n" "$DEV_VARS_CONTENT" > /web/apps/web/.dev.vars
+if [ -d "/web/apps/web/dist/server" ]; then
+  printf "%s\n" "$DEV_VARS_CONTENT" > /web/apps/web/dist/server/.dev.vars
+fi
 
 echo "[init] 正在检查并应用本地 D1 数据库迁移..."
 cd /web
@@ -46,7 +52,9 @@ pnpm --filter @heybox/web exec wrangler d1 migrations apply heybox-daily --local
 # 3. 启动本地 Runner 服务（监听 127.0.0.1:8788）
 echo "[start] 启动本地 Runner 服务..."
 cd /app
-if [ -f "apps/runner/dist/index.js" ]; then
+if [ -f "src/main.ts" ]; then
+  node src/main.ts &
+elif [ -f "apps/runner/dist/index.js" ]; then
   node apps/runner/dist/index.js &
 elif [ -f "dist/apps/runner/index.js" ]; then
   node dist/apps/runner/index.js &
@@ -65,6 +73,8 @@ if [ -f "dist/server/wrangler.json" ]; then
     --persist-to /data/d1 \
     --ip 0.0.0.0 \
     --port 3000 \
+    --var "BETTER_AUTH_SECRET:${BETTER_AUTH_SECRET}" \
+    --var "RUNNER_SERVICE_TOKEN:${RUNNER_SERVICE_TOKEN}" \
     --var "SITE_URL:${SITE_URL}" \
     --var "RUNNER_URL:http://127.0.0.1:8788" \
     --var "EXECUTOR_ENABLED:false" \
@@ -81,7 +91,8 @@ WEB_PID=$!
     CURRENT_MIN=$(date +%M)
     CURRENT_HOUR=$(date +%Y%m%d%H)
     if [ "$CURRENT_MIN" = "30" ] && [ "$LAST_TRIGGER_HOUR" != "$CURRENT_HOUR" ]; then
-      if curl -fsS http://127.0.0.1:3000/cdn-cgi/handler/scheduled > /dev/null 2>&1; then
+      if curl -fsS "http://127.0.0.1:3000/cdn-cgi/local/scheduled" > /dev/null 2>&1 \
+        || curl -fsS "http://127.0.0.1:3000/cdn-cgi/handler/scheduled" > /dev/null 2>&1; then
         echo "[cron] $(date '+%F %T') 已触发每小时定时任务检查"
       fi
       LAST_TRIGGER_HOUR="$CURRENT_HOUR"
