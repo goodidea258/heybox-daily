@@ -33,7 +33,7 @@ jobs:
           printf "\n\n" >> Dockerfile.merged
           cat Dockerfile.allinone >> Dockerfile.merged
           if [ -f .dockerignore ]; then
-            printf "\n!apps/web\n!apps/web/**\n" >> .dockerignore
+            printf "\n!apps/web\n!apps/web/**\n!entrypoint.sh\n" >> .dockerignore
           fi
 
       - name: Build and push All-in-One image
