@@ -1,0 +1,27 @@
+FROM heybox-runner-base:local
+
+USER root
+WORKDIR /web
+
+# 安装生成密钥与内置定时触发所需的最小工具
+RUN apt-get update && apt-get install -y --no-install-recommends openssl curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制构建 Web 所需的工作区文件，保持 /app 下官方编译好的 Runner 环境完整
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig*.json ./
+COPY patches ./patches
+COPY packages ./packages
+COPY apps/web ./apps/web
+
+# 激活对应版本 pnpm 并构建前端产物
+RUN corepack enable \
+    && pnpm install --frozen-lockfile \
+    && pnpm --filter @heybox/web build
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 3000
+VOLUME ["/data"]
+
+ENTRYPOINT ["/entrypoint.sh"]
