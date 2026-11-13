@@ -13,9 +13,9 @@ RUN if command -v apt-get >/dev/null 2>&1; then \
 # 复制完整工作区以匹配 pnpm-lock.yaml，/app 下官方编译好的 Runner 环境不受影响
 COPY . .
 
-# 安装指定版本 pnpm 并构建前端产物
+# 确保安装完整的开发构建依赖并编译前端产物
 RUN (command -v pnpm >/dev/null 2>&1 || npm install -g pnpm@12.15.0) \
-    && pnpm install --frozen-lockfile \
+    && NODE_ENV=development pnpm install --frozen-lockfile \
     && pnpm --filter @heybox/web build
 
 COPY entrypoint.sh /entrypoint.sh
