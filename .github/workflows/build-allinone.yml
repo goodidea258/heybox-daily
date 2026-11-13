@@ -41,6 +41,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile.allinone
+          build-contexts: |
+            heybox-runner-base=docker-image://heybox-runner-base:local
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/heybox-daily-allinone:latest
