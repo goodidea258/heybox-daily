@@ -1,4 +1,4 @@
-FROM heybox-runner-base:local
+FROM heybox-runner-base
 
 USER root
 WORKDIR /web
@@ -7,19 +7,16 @@ WORKDIR /web
 RUN apt-get update && apt-get install -y --no-install-recommends openssl curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制构建 Web 所需的工作区文件，保持 /app 下官方编译好的 Runner 环境完整
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig*.json ./
-COPY patches ./patches
-COPY packages ./packages
-COPY apps/web ./apps/web
+# 复制完整工作区以匹配 pnpm-lock.yaml，/app 下官方编译好的 Runner 环境不受影响
+COPY . .
 
-# 激活对应版本 pnpm 并构建前端产物
-RUN corepack enable \
+# 确保 pnpm 可用并构建前端产物
+RUN (command -v pnpm >/dev/null 2>&1 || corepack enable || npm install -g pnpm@12.15.0) \
     && pnpm install --frozen-lockfile \
     && pnpm --filter @heybox/web build
 
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 3000
 VOLUME ["/data"]
